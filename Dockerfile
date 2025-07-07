@@ -1,20 +1,27 @@
-FROM python:3.9
+# Stage 1: Build the React app
+FROM node:18 AS build
 
-WORKDIR /app/backend
+# Set working directory
+WORKDIR /app
 
-COPY requirements.txt /app/backend
-RUN apt-get update \
-    && apt-get upgrade -y \
-    && apt-get install -y gcc default-libmysqlclient-dev pkg-config \
-    && rm -rf /var/lib/apt/lists/*
+# Install dependencies
+COPY package*.json ./
+RUN npm install
 
+# Copy source files
+COPY . .
 
-# Install app dependencies
-RUN pip install mysqlclient
-RUN pip install --no-cache-dir -r requirements.txt
+# Build the app for production
+RUN npm run build
 
-COPY . /app/backend
+# Stage 2: Serve the app using NGINX
+FROM nginx:alpine
 
-EXPOSE 8000
-#RUN python manage.py migrate
-#RUN python manage.py makemigrations
+# Copy built app from previous stage
+COPY --from=build /app/dist /usr/share/nginx/html
+
+# Expose port 80
+EXPOSE 80
+
+# Start NGINX server
+CMD ["nginx", "-g", "daemon off;"]
